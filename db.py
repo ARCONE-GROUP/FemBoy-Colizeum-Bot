@@ -57,7 +57,7 @@ def init_db():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL UNIQUE,
         type TEXT NOT NULL,
         value INTEGER NOT NULL,
         price INTEGER NOT NULL
@@ -65,13 +65,18 @@ def init_db():
     """)
     # Начальные предметы
     items = [
-        ("Бычий Член", "weapon", 5, 100),
+        ("Бычий Член", "weapon", 3, 100),
         ("Митенки", "armor", 3, 80),
-        ("Волшебный Жезл", "weapon", 8, 250),
-        ("Костюм горничной", "armor", 6, 200)
+        ("Волшебный Жезл", "weapon", 9, 280),
+        ("Костюм горничной", "armor", 9, 200),
+        ("Меч Астольфо", "weapon", 50, 1000),
+        ("Кошачьи ушки", "armor", 25, 450),
+        ("Благородная Слизь", "armor", 80, 5000)
     ]
     for item in items:
-        cur.execute("INSERT OR IGNORE INTO items (name, type, value, price) VALUES (?, ?, ?, ?)", item)
+        cur.execute("SELECT 1 FROM items WHERE name = ?", (item[0],))
+        if not cur.fetchone():
+            cur.execute("INSERT INTO items (name, type, value, price) VALUES (?, ?, ?, ?)", item)
 
     # Битвы
     cur.execute("""
@@ -184,4 +189,11 @@ def update_warrior(conn, femboy_id: int, data: dict):
     values.append(femboy_id)
     cur.execute(f"UPDATE femboys SET {', '.join(fields)} WHERE id=?", values)
     conn.commit()
+
+def get_user_by_username(conn, username):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username=?", (username,))
+    return cur.fetchone()
+
+
 
