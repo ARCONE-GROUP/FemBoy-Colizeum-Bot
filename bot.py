@@ -174,10 +174,10 @@ def cmd_buy(message):
     bot.send_message(message.chat.id, result)
 
 # === /duel ===
+# /duel @username
 @bot.message_handler(commands=['duel'])
 def cmd_duel(message):
-    conn = db.get_conn()
-    user = db.get_user_by_tid(conn, message.from_user.id)
+    user = get_user(message)
     if not user:
         bot.send_message(message.chat.id, "Сначала зарегистрируйся /start")
         return
@@ -188,33 +188,34 @@ def cmd_duel(message):
         return
 
     opponent_username = args[1].lstrip('@')
-    opponent = db.get_user_by_username(conn, opponent_username)
+    # ищем по username в базе, но если None — ищем по Telegram ID через get_user_by_tid
+    opponent = None
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username=?", (opponent_username,))
+    opponent = cur.fetchone()
     if not opponent:
-        bot.send_message(message.chat.id, f"Пользователь @{opponent_username} не найден!")
+        bot.send_message(message.chat.id, f"Пользователь @{opponent_username} не найден или не зарегистрирован!")
         return
 
-    cur = conn.cursor()
-    # Создание дуэли
+    if opponent["id"] == user["id"]:
+        bot.send_message(message.chat.id, "Нельзя вызвать себя 😅")
+        return
+
     cur.execute(
-        "INSERT INTO duels (challenger_id, opponent_id, status) VALUES (?, ?, 'pending')",
-        (user['id'], opponent['id'])
+        "INSERT INTO duels (challenger_id, opponent_id) VALUES (?, ?)",
+        (user["id"], opponent["id"])
     )
     conn.commit()
     duel_id = cur.lastrowid
 
-    # Кнопка принять
-    markup = telebot.types.InlineKeyboardMarkup()
-    accept_button = telebot.types.InlineKeyboardButton(
-        text=f"Принять дуэль от @{user['username']}",
-        callback_data=f"accept_duel:{duel_id}:{opponent['telegram_id']}"  # <-- тут telegram_id
+    markup = InlineKeyboardMarkup()
+    accept_button = InlineKeyboardButton(
+        text=f"Принять дуэль от @{user['username'] or 'игрок'}",
+        callback_data=f"accept_duel:{duel_id}:{opponent['telegram_id']}"
     )
     markup.add(accept_button)
 
-    bot.send_message(
-        message.chat.id,
-        f"@{opponent['username']}, тебя вызвали на дуэль!",
-        reply_markup=markup
-    )
+    bot.send_message(message.chat.id, f"@{opponent_username}, тебя вызвали на дуэль!", reply_markup=markup)
 
 
 # === Принятие дуэли ===
@@ -222,24 +223,17 @@ def cmd_duel(message):
 def accept_duel_callback(call):
     try:
         # Разбираем callback_data
-        parts = call.data.split(":")  # parts[0] = 'accept_duel', parts[1] = duel_id, parts[2] = opponent_id
+        parts = call.data.split(":")
         duel_id = int(parts[1])
-        opponent_id = int(parts[2])
+        allowed_tid = int(parts[2])  # Telegram ID того, кто должен принять
 
-        conn = db.get_conn()
-        cur = conn.cursor()
-
-        # Проверяем, что нажал именно приглашённый игрок
-        cur.execute("SELECT telegram_id FROM users WHERE id=?", (opponent_id,))
-        row = cur.fetchone()
-        if not row:
-            bot.answer_callback_query(call.id, "Пользователь не найден!")
-            return
-
-        opponent_tid = row["telegram_id"]
-        if call.from_user.id != opponent_tid:
+        if call.from_user.id != allowed_tid:
             bot.answer_callback_query(call.id, "Эту дуэль может принять только приглашённый игрок!")
             return
+
+        # Подключаемся к базе и создаём курсор
+        conn = db.get_conn()
+        cur = conn.cursor()
 
         # Берём дуэль
         cur.execute("SELECT * FROM duels WHERE id=? AND status='pending'", (duel_id,))
@@ -282,6 +276,7 @@ def accept_duel_callback(call):
     except Exception as e:
         print("ERROR in accept_duel_callback:", e)
         bot.answer_callback_query(call.id, f"Произошла ошибка: {e}")
+
 
 
 
