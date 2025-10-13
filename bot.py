@@ -277,6 +277,39 @@ def accept_duel_callback(call):
         print("ERROR in accept_duel_callback:", e)
         bot.answer_callback_query(call.id, f"Произошла ошибка: {e}")
 
+@bot.message_handler(commands=['tops']) 
+def cmd_tops(message):
+    try:
+        conn = db.get_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT name, lvl, xp
+            FROM femboys
+            ORDER BY lvl DESC, xp DESC
+            LIMIT 10
+        """)
+        top_players = cur.fetchall()
+
+        if not top_players:
+            bot.send_message(message.chat.id, "Пока нет ни одного покорителя колизея!")
+            return
+        
+        text = "<b>ТОП ФЕМБОЙЧИКОВ КОЛИЗЕЯ</b>\n\n"
+        for i, player in enumerate(top_players, start=1):
+            name = player["name"]
+            lvl = player["lvl"]
+            xp = player["xp"]
+            text += f"<b>{i}.</b> {name} - Уровень: {lvl}, Опыт: {xp}\n"
+
+        bot.send_message(message.chat.id, text, parse_mode="HTML")
+
+    except Exception as e:
+        print("ERROR IN /tops:", e)
+        bot.send_message(message.chat.id, f"ПРОИЗОШЛА ОШИБКА, ТОПА НЕТ, ВЫ ВСЕ ЛОХИ :/")
+
+
+    
+
 
 
 
