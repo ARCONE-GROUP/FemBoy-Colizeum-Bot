@@ -21,11 +21,11 @@ def get_user(message):
 
 def calculate_max_hp(level):
     """HP по уровням"""
-    return 50 + (level - 1) * 10
+    return 50 + (level - 1) * 15
 
 def calculate_xp_to_next_level(level):
     """XP для перехода на следующий уровень"""
-    return level * 500
+    return level * 5000
 
 def check_level_up(femboy):
     """Проверка апа уровня"""
@@ -69,7 +69,7 @@ def cmd_create(message):
         return
 
     femboy = db.create_femboy(conn, user['id'], args[1])
-    bot.send_message(message.chat.id, f"Фембой {femboy['name']} создан! 🏳️‍🌈")
+    bot.send_message(message.chat.id, f"Фембой {femboy['name']} создан! 🏳️")
 
 # === /profile ===
 @bot.message_handler(commands=['profile'])
@@ -86,7 +86,7 @@ def cmd_profile(message):
 
     msg = (
         f"👤 {message.from_user.first_name}\n"
-        f"🏳️‍🌈 Фембой: {femboy['name']}\n"
+        f"🏳️ Фембой: {femboy['name']}\n"
         f"Уровень: {femboy['lvl']} | XP: {femboy['xp']} | HP: {femboy['hp']}/{calculate_max_hp(femboy['lvl'])}\n"
         f"Атака: {femboy['atk'] + femboy['weapon_atk']} | Защита: {femboy['def'] + femboy['armor_def']} | Золото: {femboy['gold']}"
     )
@@ -109,7 +109,7 @@ def cmd_train(message):
         bot.send_message(message.chat.id, "У тебя ещё нет фембоя!")
         return
 
-    trainer = {"name": "Тренер", "hp": 40, "atk": 7, "def": 4, "lvl": 1, "xp": 0, "gold": 0, "armor_def": 0}
+    trainer = {"name": "Тренер", "hp": 40, "atk": 7, "def": 4, "lvl": 1, "xp": 0, "gold": 100, "armor_def": 0}
 
     result = battle(femboy, trainer)
     for line in result["log"]:
@@ -118,12 +118,13 @@ def cmd_train(message):
     winner = result["winner"]
     if winner["name"] == femboy["name"]:
         femboy["xp"] += 200
-        femboy["gold"] += 10
+        femboy["atk"] += 5
+        femboy["gold"] += 50
         femboy["hp"] = min(calculate_max_hp(femboy["lvl"]), femboy["hp"] + 10)
         femboy = check_level_up(femboy)
         db.update_warrior(conn, femboy["id"], femboy)
         db.update_training_time(conn, user['id'])
-        bot.send_message(message.chat.id, f"Ты стал сильнее! 🌟 XP: {femboy['xp']} | Уровень: {femboy['lvl']}")
+        bot.send_message(message.chat.id, f"Ты стал сильнее! Твоя атака увеличилась на 5 единиц и теперь {femboy['atk']}\n 🌟 XP: {femboy['xp']} | Уровень: {femboy['lvl']}")
     else:
         bot.send_message(message.chat.id, "Тренировка окончена! Но не сдавайся 💪")
 
@@ -247,14 +248,13 @@ def accept_duel_callback(call):
         f_b = dict(db.get_femboy_by_user(conn, duel['opponent_id']))
 
         # Запускаем бой
-        result = battle(f_a, f_b)
+        result = battle(f_a, f_b,)
         winner = result["winner"]
         loser = f_b if winner["name"] == f_a["name"] else f_a
-
-        # Выигрыш золотом
-        gold_gain = min(30, loser["gold"])
-        winner["gold"] += gold_gain
-        loser["gold"] -= gold_gain
+        
+        #Баблишко накидываем
+        winner['gold'] += (loser["gold"] /2)
+        loser['gold'] -= (loser["gold"] /2)
 
         # Восстанавливаем HP победителю
         winner_max_hp = calculate_max_hp(winner["lvl"])
@@ -309,9 +309,44 @@ def cmd_tops(message):
 
 
     
+@bot.message_handler(commands=['help'])
+def cmd_help(message):
+    bot.send_message(message.chat.id, ""
+    "/create_femboy <name> - создание своего персонажа\n "
+    "/profile - просмотреть профиль персонажа\n "
+    "/shop - магазин\n "
+    "/duel <@username> - вызвать пользователя на дуэль\n "
+    "/train - провести тренировочный бой с персонажем-тренером\n")
 
+@bot.message_handler(commands=['reset_all'])
+def cmd_reset_all(message):
+    if message.from_user.id != 1749731920:
+        bot.reply_to(message, "ты не админ, хатьфу, соси.")
+        return
 
+    try:
+        conn = db.get_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE femboys
+            SET lvl = 1,
+                xp = 0,
+                gold = 30,
+                hp = 50,
+                weapon_atk = 0,
+                armor_def = 0,
+                atk = 10,
+                def = 5
 
+        """)
+        cur.execute("UPDATE users SET last_training = NULL")
+        conn.commit()
+        bot.send_message(message.chat.id, "Все фембои возвращны в свои инкубаторы и откатились до заводских!")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Error in /reset_all: {e}")
+        print("Error in /reset_all:", e)
+    finally:
+        conn.close()
 
 # === Запуск ===
 if __name__ == "__main__":
