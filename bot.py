@@ -110,7 +110,7 @@ def cmd_train(message):
         bot.send_message(message.chat.id, "У тебя ещё нет фембоя!")
         return
 
-    trainer = {"name": "Тренер", "hp": 40, "atk": 7, "def": 4, "lvl": 1, "xp": 0, "gold": 100, "armor_def": 0}
+    trainer = {"name": "Тренер", "hp": 40, "atk": 7, "def": 4, "lvl": 1, "xp": 0, "gold": 100, "armor_def": 0, "weapon_atk": 0}
 
     result = battle(femboy, trainer)
     for line in result["log"]:
@@ -262,9 +262,21 @@ def accept_duel_callback(call):
         winner["hp"] = winner_max_hp
         loser["hp"] = max(1, loser["hp"])
 
+        complexity_lvl = result["complexity_lvl"]
+
+        #if winner['xp'] > loser['xp']:
+        #    complexity_lvl = winner['xp'] - loser["xp"]
+        #elif winner['xp'] < loser['xp']:
+        #    complexity_lvl = loser['xp'] - winner["xp"]
+        #else:
+        #    complexity_lvl = 1
+
+        loser["xp"] += round(complexity_lvl/10)
+
         # Обновляем фембоев
+        db.update_warrior(conn, loser["id"], {"hp": loser["hp"], "gold": loser["gold"], "xp": loser["xp"]})
         db.update_warrior(conn, winner["id"], {"xp": winner["xp"], "gold": winner["gold"], "hp": winner["hp"]})
-        db.update_warrior(conn, loser["id"], {"hp": loser["hp"], "gold": loser["gold"]})
+
 
         # Завершаем дуэль
         cur.execute("UPDATE duels SET status='finished', winner_id=? WHERE id=?", (winner["id"], duel_id))

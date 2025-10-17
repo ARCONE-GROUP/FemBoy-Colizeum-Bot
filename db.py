@@ -143,10 +143,10 @@ def get_femboy_dict(conn, user_id: int) -> Optional[dict]:
     # на всякий случай ставим дефолты, если чего нет
     d.setdefault("lvl", 1)
     d.setdefault("xp", 0)
-    d.setdefault("hp", 100)
+    d.setdefault("hp", 50)
     d.setdefault("atk", 10)
     d.setdefault("def", 5)
-    d.setdefault("gold", 0)
+    d.setdefault("gold", 30)
     d.setdefault("weapon_atk", 0)
     d.setdefault("armor_def", 0)
     return d
