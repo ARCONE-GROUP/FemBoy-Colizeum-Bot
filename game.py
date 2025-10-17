@@ -29,6 +29,16 @@ def battle(femboy_a: dict, femboy_b: dict) -> dict:
     a = femboy_a.copy()
     b = femboy_b.copy()
 
+    complexity_lvl = 0
+
+    if a['xp'] > b['xp']:
+        complexity_lvl = a['xp'] - b["xp"]
+    elif a['xp'] < b['xp']:
+        complexity_lvl = b['xp'] - a["xp"]
+    else:
+        complexity_lvl = 100
+
+
     log.append(f"🔞 🔞 🔞  {a['name']} 🆚 {b['name']}  🔞 🔞 🔞 \n")
 
     #  Случайный выбор, кто атакует первым
@@ -68,10 +78,11 @@ def battle(femboy_a: dict, femboy_b: dict) -> dict:
 
         win = round(loser['gold'] / 2)
         winner["xp"] += 50
+        loser["xp"] += round(complexity_lvl/10)
         winner['gold'] += win
         loser['gold'] = max(0, loser['gold'] - win)
 
-        log.append(f"\n🏆 Победитель: {winner['name']}! +50 XP💡 , +{win} gold💰")
+        log.append(f"\n🏆 Победитель: {winner['name']}! +50 XP💡 , +{win} gold💰\n Проигравший: {loser['name']}! + {round(complexity_lvl/10)} XP!")
 
-    return {"winner": winner, "log": log}
+    return {"winner": winner, "loser": loser, "log": log, "complexity_lvl": complexity_lvl}
 
