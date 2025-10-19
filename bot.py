@@ -7,6 +7,7 @@ import db
 from game import battle, buy_item
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time 
+import datetime
 
 # === Настройка ===
 load_dotenv()
@@ -15,6 +16,16 @@ bot = telebot.TeleBot(TOKEN)
 conn = db.init_db()
 
 # === Вспомогательные функции ===
+
+def get_inventory(conn, femboy_id):
+    cur = conn.cursor()
+    cur.execute("SELECT name, type, COUNT(*) as qty FROM femboy_items fi "
+                "JOIN items i ON fi.item_id = i.id "
+                "WHERE fi.femboy_id = ? "
+                "GROUP BY fi.item_id", (femboy_id,))
+    items = cur.fetchall()
+    return items  # список словарей: {"name": ..., "type": ..., "qty": ...}
+
 def get_user(message):
     if not message.from_user:
         return None
@@ -22,7 +33,7 @@ def get_user(message):
 
 def calculate_max_hp(level):
     """HP по уровням"""
-    return 50 + (level - 1) * 50
+    return 50 + (level - 1) * 20
 
 def calculate_xp_to_next_level(level):
     """XP для перехода на следующий уровень"""
@@ -92,11 +103,25 @@ def cmd_profile(message):
     
     femboy = check_level_up(femboy)
 
+    femboy = db.get_femboy_dict(conn, user['id'])
+    items = get_inventory(conn, femboy['id'])
+
+    inv_text = ""
+    if items:
+        inv_text = "\n\n🎒 Инвентарь:\n"
+        for item in items:
+            count = f"x{item['qty']}" if item['qty'] > 1 else ""
+            icon = "🗡️" if item["type"] == "weapon" else "🛡️" if item["type"] == "armor" else "❓"
+            inv_text += f"{icon} {item['name']} {count}\n"
+    else:
+        inv_text = "\n\n🎒 Инвентарь пуст!"
+
     msg = (
         f"👤 {message.from_user.first_name}\n"
         f"🏳️ Фембой: {femboy['name']}\n"
         f"Уровень: {femboy['lvl']} | XP: {femboy['xp']} | HP: {femboy['hp']}/{calculate_max_hp(femboy['lvl'])}\n"
         f"Атака: {femboy['atk'] + femboy['weapon_atk']} | Защита: {femboy['def'] + femboy['armor_def']} | Золото: {femboy['gold']}"
+        +inv_text
     )
     bot.send_message(message.chat.id, msg)
 
@@ -113,12 +138,23 @@ def cmd_boss(message):
         bot.send_message(message.chat.id, "У тебя ещё нет фембоя!")
         return
 
+    # Стоимость участия в бою с боссом
+    entry_fee = 50
+
+    # Проверка золота
+    if femboy["gold"] < entry_fee:
+        bot.send_message(message.chat.id, f"💰 У тебя недостаточно золота! Нужно {entry_fee}, а у тебя всего {femboy['gold']}.")
+        return
+
+    # Списываем золото за вход
+    femboy["gold"] -= entry_fee
+
     # === Определяем текущего босса ===
     bosses = {
-        1: {"name": "Энергет", "hp": 100, "atk": 20, "def": 4, "lvl": 1, "xp": 0, "gold": 300, "armor_def": 0, "weapon_atk": 0},
-        2: {"name": "Гигачад", "hp": 150, "atk": 30, "def": 6, "lvl": 2, "xp": 0, "gold": 600, "armor_def": 0, "weapon_atk": 0},
-        3: {"name": "Синьор ФемБой", "hp": 200, "atk": 40, "def": 8, "lvl": 3, "xp": 0, "gold": 1000, "armor_def": 0, "weapon_atk": 0},
-        4: {"name": "Лорд Глиттер", "hp": 250, "atk": 50, "def": 10, "lvl": 4, "xp": 0, "gold": 1500, "armor_def": 0, "weapon_atk": 0}
+        1: {"name": "Энергет", "hp": 100, "atk": 30, "def": 4, "lvl": 1, "xp": 0, "gold": 300, "armor_def": 0, "weapon_atk": 0},
+        2: {"name": "Гигачад", "hp": 150, "atk": 40, "def": 6, "lvl": 2, "xp": 0, "gold": 600, "armor_def": 0, "weapon_atk": 0},
+        3: {"name": "Синьор ФемБой", "hp": 200, "atk": 60, "def": 8, "lvl": 3, "xp": 0, "gold": 2000, "armor_def": 0, "weapon_atk": 0},
+        4: {"name": "Лорд Глиттер", "hp": 250, "atk": 100, "def": 10, "lvl": 4, "xp": 0, "gold": 3500, "armor_def": 0, "weapon_atk": 0}
     }
 
     boss_num = femboy.get("current_boss", 1)
@@ -127,6 +163,8 @@ def cmd_boss(message):
         return
 
     boss = bosses[boss_num]
+
+    # Начало боя
     result = battle(femboy, boss)
     winner = result["winner"]
     log_text = "\n".join(result["log"])
@@ -134,23 +172,30 @@ def cmd_boss(message):
     if winner["name"] == femboy["name"]:
         # === Победа ===
         femboy["xp"] += 1000 * boss_num
-        femboy["gold"] += boss["gold"]
+        femboy["gold"] += boss["gold"]  # получаем награду
         femboy["hp"] = min(calculate_max_hp(femboy["lvl"]), femboy["hp"] + 20)
         femboy = check_level_up(femboy)
-        
-        # Продвигаем к следующему боссу
-        femboy["current_boss"] = boss_num + 1
+        femboy["current_boss"] = boss_num + 1  # следующий босс
 
         db.update_warrior(conn, femboy["id"], femboy)
+
         bot.send_message(
             message.chat.id,
             f"🏆 Победа над {boss['name']}!\n\n{log_text}\n\n"
             f"🌟 XP: {femboy['xp']} | Уровень: {femboy['lvl']}\n"
-            f"💰 Золото: {femboy['gold']}\n"
+            f"💰 Получено золота: +{boss['gold']} (вход стоил {entry_fee})\n"
             f"➡️ Следующий босс: {femboy['current_boss']}"
         )
     else:
-        bot.send_message(message.chat.id, f"💀 Ты пал от руки {boss['name']}!\n\n{log_text}\n\nА ещё тебя отымели, братан!")
+        # === Поражение ===
+        complexity_lvl = result["complexity_lvl"]
+        femboy["xp"] += round(complexity_lvl/2)
+        db.update_warrior(conn, femboy["id"], femboy)
+        bot.send_message(
+            message.chat.id,
+            f"💀 Ты пал от руки {boss['name']}!\n\n{log_text}\n\n"
+            f"Ты потерял {entry_fee} золота за участие... А ещё тебя отымели и ты теперь заднеприводный :) ⚔️"
+        )
 
         
 # === /train ===
@@ -437,10 +482,12 @@ def cmd_reset_all(message):
                 weapon_atk = 0,
                 armor_def = 0,
                 atk = 10,
-                def = 5
+                def = 5,
+                current_boss = 1
 
         """)
-        cur.execute("UPDATE users SET last_training = NULL")
+        cur.execute("UPDATE users SET last_training = NULL") #сброс таймера трени
+        cur.execute("DELETE FROM femboy_items") #сброс инвентаря
         conn.commit()
         bot.send_message(message.chat.id, "Все фембои возвращны в свои инкубаторы и откатились до заводских!")
     except Exception as e:
@@ -448,8 +495,6 @@ def cmd_reset_all(message):
         print("Error in /reset_all:", e)
     finally:
         conn.close()
-
-
 
 
 while True:

@@ -25,6 +25,17 @@ def init_db():
     );
     """)
 
+    # Инвентарь фембоев
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS femboy_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        femboy_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        FOREIGN KEY(femboy_id) REFERENCES femboys(id),
+        FOREIGN KEY(item_id) REFERENCES items(id)
+    );
+    """)
+
     # Фембои
     cur.execute("""
     CREATE TABLE IF NOT EXISTS femboys (

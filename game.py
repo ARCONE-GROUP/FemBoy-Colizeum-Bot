@@ -20,6 +20,9 @@ def buy_item(conn, femboy_id: int, item_id: int) -> str:
         cur.execute("UPDATE femboys SET gold=?, weapon_atk=? WHERE id=?", (new_gold, femboy["weapon_atk"] + item["value"], femboy_id))
     else:
         cur.execute("UPDATE femboys SET gold=?, armor_def=? WHERE id=?", (new_gold, femboy["armor_def"] + item["value"], femboy_id))
+
+    cur.execute("INSERT INTO femboy_items (femboy_id, item_id) VALUES (?, ?)", (femboy_id, item_id))
+
     conn.commit()
     return f"{item['name']} куплен!"
 
@@ -29,14 +32,7 @@ def battle(femboy_a: dict, femboy_b: dict) -> dict:
     a = femboy_a.copy()
     b = femboy_b.copy()
 
-    complexity_lvl = 0
 
-    if a['xp'] > b['xp']:
-        complexity_lvl = a['xp'] - b["xp"]
-    elif a['xp'] < b['xp']:
-        complexity_lvl = b['xp'] - a["xp"]
-    else:
-        complexity_lvl = 100
 
 
     log.append(f"🔞 🔞 🔞  {a['name']} 🆚 {b['name']}  🔞 🔞 🔞 \n")
@@ -75,6 +71,13 @@ def battle(femboy_a: dict, femboy_b: dict) -> dict:
         # Победа
         winner = a if a["hp"] > 0 else b
         loser = b if winner == a else a
+
+        complexity_lvl = 0
+
+        if winner["xp"] > loser["xp"]:
+            complexity_lvl = winner["xp"] - loser["xp"]
+
+
 
         win = round(loser['gold'] / 2)
         winner["xp"] += 50
