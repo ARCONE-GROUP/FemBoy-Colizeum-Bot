@@ -58,7 +58,7 @@ def check_level_up(femboy):
     return femboy
 
 def is_user_admin_by_id(id):
-    return (id in {1749731920,6199647470})
+    return (id in [1749731920,6199647470])
 
 # === /start ===
 @bot.message_handler(commands=['start'])
