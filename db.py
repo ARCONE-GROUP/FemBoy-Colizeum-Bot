@@ -50,7 +50,6 @@ def init_db():
         gold INTEGER DEFAULT 30,
         weapon_atk INTEGER DEFAULT 0,
         armor_def INTEGER DEFAULT 0,
-        current_boss INTEGER DEFAULT 1,
         FOREIGN KEY(user_id) REFERENCES users(id)
     );
     """)
