@@ -473,7 +473,7 @@ def cmd_help(message):
 
 @bot.message_handler(commands=['reset_all'])
 def cmd_reset_all(message):
-    if is_user_admin_by_id(id) != True:
+    if not(is_user_admin_by_id(id)):
         bot.reply_to(message, "ты не админ, хатьфу, соси.")
         return
 
@@ -540,7 +540,7 @@ def cmd_rename(message):
 
 @bot.message_handler(commands=['status'])
 def cmd_status(message):
-    if is_user_admin_by_id(id) != True:
+    if not(is_user_admin_by_id(id)):
         bot.reply_to(message, "ты не админ, хатьфу, соси.")
         return
     try:
