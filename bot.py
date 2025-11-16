@@ -10,8 +10,8 @@ import time
 import datetime
 
 # === Настройка ===
-load_dotenv()
-TOKEN = os.getenv("BOT_TOKEN")
+#load_dotenv()
+TOKEN = "8429912189:AAFyM54mxHeQdupvmH9NJOfGLrUnPxHF9bQ"
 bot = telebot.TeleBot(TOKEN)
 conn = db.init_db()
 
@@ -44,7 +44,7 @@ def check_level_up(femboy):
     leveled_up = False
     xp_needed = calculate_xp_to_next_level(femboy["lvl"])
 
-    print(f"DEBUG: lvl={femboy['lvl']}, xp={femboy['xp']}, need={xp_needed}")
+    print(f"DEBUG: {femboy["name"]} lvl={femboy['lvl']}, xp={femboy['xp']}, need={xp_needed}")
     
     while femboy["xp"] >= xp_needed:
         femboy["xp"] -= xp_needed
