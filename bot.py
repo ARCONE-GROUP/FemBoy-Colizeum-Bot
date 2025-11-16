@@ -43,8 +43,6 @@ def check_level_up(femboy):
     """Проверка апа уровня"""
     leveled_up = False
     xp_needed = calculate_xp_to_next_level(femboy["lvl"])
-
-    print(f"DEBUG: {femboy["name"]} lvl={femboy['lvl']}, xp={femboy['xp']}, need={xp_needed}")
     
     while femboy["xp"] >= xp_needed:
         femboy["xp"] -= xp_needed
