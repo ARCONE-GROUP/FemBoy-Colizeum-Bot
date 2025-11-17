@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 # === Настройка ===
 #load_dotenv()
-TOKEN = "8429912189:AAFyM54mxHeQdupvmH9NJOfGLrUnPxHF9bQ"
+TOKEN = "8231497187:AAFpmehDkGb8sr_nQZ3qbfUfnQ3EI3LXF78"
 # TOKEN = "7849791400:AAHi9JlJFwF_bVlMmWUwaXEhdP7chlHQSCw"
 bot = telebot.TeleBot(TOKEN)
 bot.start_time = time.time()  
