@@ -122,12 +122,26 @@ def init_db():
         price = base_prices[rarity] * stats_multiplier * type_multipliers[item_type] * special_multiplier
         return max(80, int(price))
 
-    # Удаляем все существующие предметы и создаем заново с правильными редкостями
-    print("=== ПЕРЕСОЗДАНИЕ ПРЕДМЕТОВ ===")
-    cur.execute("DELETE FROM items")
-
-    # Начальные предметы
-    items = [
+    
+    print("=== ОБНОВЛЕНИЕ РЕДКОСТЕЙ ПРЕДМЕТОВ ===")
+    
+    # Обновляем редкости по имени
+    rarity_updates = [
+        ('trash', ['Говорящая рыба', 'Тапочки безумия', 'Ватная палочка', 'Бычий Член', 'Митенки']),
+        ('toy', ['Волшебный Жезл', 'Костюм горничной', 'Интегральная пушка', 'Чокер с поводком', 'Пособие по python']),
+        ('wooden', ['Кошачьи ушки', 'Халяль Редбулл', 'Дырявый Тазик', 'Накидка из Фольги', 'Нунчaки из Багетов']),
+        ('common', ['Меч Астольфо']),
+        ('rare', ['Благородная Слизь']),
+        ('adventure', ['Потертый плащ', 'Зачарованный амулет', 'Острые когти', 'Древний свиток', 'Блестящее кольцо', 'Магический жезл'])
+    ]
+    
+    for rarity, names in rarity_updates:
+        for name in names:
+            cur.execute("UPDATE items SET rarity = ? WHERE name = ?", (rarity, name))
+            print(f"Обновлена редкость: {name} -> {rarity}")
+    
+    # Список ВСЕХ предметов которые должны быть в игре
+    all_items = [
         ("Говорящая рыба", "weapon", 1, calculate_price('trash', 1, 'weapon'), "trash"),
         ("Тапочки безумия", "armor", 2, calculate_price('trash', 2, 'armor'), "trash"),
         ("Ватная палочка", "weapon", 2, calculate_price('trash', 2, 'weapon'), "trash"),
@@ -144,11 +158,8 @@ def init_db():
         ("Накидка из Фольги", "armor", 32, calculate_price('wooden', 32, 'armor'), "wooden"),
         ("Нунчaки из Багетов", "weapon", 35, calculate_price('wooden', 35, 'weapon'), "wooden"),
         ("Меч Астольфо", "weapon", 50, calculate_price('common', 50, 'weapon'), "common"),
-        ("Благородная Слизь", "armor", 100, calculate_price('rare', 100, 'armor'), "rare")
-    ]
-
-    # Редкие предметы для приключений
-    adventure_items = [
+        ("Благородная Слизь", "armor", 100, calculate_price('rare', 100, 'armor'), "rare"),
+        # Приключенческие предметы
         ("Потертый плащ", "armor", 2, 0, "adventure"),
         ("Зачарованный амулет", "armor", 5, 0, "adventure"),
         ("Острые когти", "weapon", 3, 0, "adventure"),
@@ -156,19 +167,17 @@ def init_db():
         ("Блестящее кольцо", "armor", 3, 0, "adventure"),
         ("Магический жезл", "weapon", 10, 0, "adventure")
     ]
-
-    print("Добавление обычных предметов...")
-    for item in items:
-        cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
-        print(f"Добавлен: {item[0]} ({item[4]})")
-
-    print("Добавление приключенческих предметов...")
-    for item in adventure_items:
-        cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
-        print(f"Добавлен: {item[0]} ({item[4]})")
-
-    print("=== ПРЕДМЕТЫ УСПЕШНО СОЗДАНЫ ===")
-
+    
+    print("Добавление недостающих предметов...")
+    for item in all_items:
+        cur.execute("SELECT id FROM items WHERE name = ?", (item[0],))
+        if not cur.fetchone():
+            cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
+            print(f"Добавлен новый предмет: {item[0]} ({item[4]})")
+        else:
+            print(f"Предмет уже существует: {item[0]}")
+    
+    print("=== ОБНОВЛЕНИЕ ПРЕДМЕТОВ ЗАВЕРШЕНО ===")
             
     # Битвы
     cur.execute("""
