@@ -51,3 +51,23 @@ def is_user_admin_by_id(id):
 
 def is_user_admin_by_message(message):
     return is_user_admin_by_id(message.from_user.id)
+
+def calculate_equipment_bonuses(conn, femboy_id):
+    """Рассчитывает бонусы от предметов в инвентаре"""
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT i.type, SUM(i.value) as total_value
+        FROM femboy_items fi 
+        JOIN items i ON fi.item_id = i.id 
+        WHERE fi.femboy_id = ? 
+        GROUP BY i.type
+    """, (femboy_id,))
+    
+    bonuses = {'weapon': 0, 'armor': 0}
+    for row in cur.fetchall():
+        if row['type'] == 'weapon':
+            bonuses['weapon'] = row['total_value']
+        elif row['type'] == 'armor':
+            bonuses['armor'] = row['total_value']
+    
+    return bonuses
