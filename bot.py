@@ -700,6 +700,82 @@ def cmd_reset_timings(message):
         bot.reply_to(message, f"❌ Ошибка: {e}")
         print("Error in /reset_timings:", e)
 
+@bot.message_handler(commands=['give'])
+def cmd_give(message):
+    if not is_user_admin_by_message(message):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+
+    args = message.text.split()
+    if len(args) < 4:
+        bot.reply_to(message, 
+            "❌ Использование: /give <характеристика> <количество> @username\n"
+            "📊 Характеристики: gold, xp, hp, atk, def, weapon_atk, armor_def\n"
+            "💡 Пример: /give gold 5000 @username")
+        return
+
+    stat = args[1].lower()
+    amount = args[2]
+    username = args[3].lstrip('@')
+
+    # Проверяем что amount - число
+    try:
+        amount = int(amount)
+    except ValueError:
+        bot.reply_to(message, "❌ Количество должно быть числом!")
+        return
+
+    # Допустимые характеристики
+    valid_stats = ['gold', 'xp', 'hp', 'atk', 'def', 'weapon_atk', 'armor_def']
+    if stat not in valid_stats:
+        bot.reply_to(message, f"❌ Неверная характеристика! Допустимо: {', '.join(valid_stats)}")
+        return
+
+    try:
+        conn = db.get_conn()
+        cur = conn.cursor()
+        
+        # Ищем пользователя
+        cur.execute("SELECT id FROM users WHERE username=?", (username,))
+        target_user = cur.fetchone()
+        
+        if not target_user:
+            bot.reply_to(message, f"❌ Пользователь @{username} не найден!")
+            conn.close()
+            return
+
+        # Ищем фембоя пользователя
+        cur.execute("SELECT id, name FROM femboys WHERE user_id=?", (target_user['id'],))
+        femboy = cur.fetchone()
+        
+        if not femboy:
+            bot.reply_to(message, f"❌ У @{username} нет фембоя!")
+            conn.close()
+            return
+
+        # Обновляем характеристику
+        cur.execute(f"UPDATE femboys SET {stat} = {stat} + ? WHERE id=?", (amount, femboy['id']))
+        conn.commit()
+        conn.close()
+
+        # Иконки для характеристик
+        stat_icons = {
+            'gold': '💰',
+            'xp': '✨', 
+            'hp': '❤️',
+            'atk': '⚔️',
+            'def': '🛡️',
+            'weapon_atk': '🗡️',
+            'armor_def': '🥋'
+        }
+
+        icon = stat_icons.get(stat, '📊')
+        bot.reply_to(message, f"✅ {icon} Добавлено {amount} {stat.upper()} фембою {femboy['name']} (@{username})")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+        print("Error in /give:", e)
+
 while True:
     try:
         print("Bot started...")
