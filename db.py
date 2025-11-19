@@ -122,6 +122,10 @@ def init_db():
         price = base_prices[rarity] * stats_multiplier * type_multipliers[item_type] * special_multiplier
         return max(80, int(price))
 
+    # Удаляем все существующие предметы и создаем заново с правильными редкостями
+    print("=== ПЕРЕСОЗДАНИЕ ПРЕДМЕТОВ ===")
+    cur.execute("DELETE FROM items")
+
     # Начальные предметы
     items = [
         ("Говорящая рыба", "weapon", 1, calculate_price('trash', 1, 'weapon'), "trash"),
@@ -143,10 +147,6 @@ def init_db():
         ("Благородная Слизь", "armor", 100, calculate_price('rare', 100, 'armor'), "rare")
     ]
 
-    adventure_names = ['Потертый плащ', 'Зачарованный амулет', 'Острые когти', 'Древний свиток', 'Блестящее кольцо', 'Магический жезл']
-    for name in adventure_names:
-        cur.execute("UPDATE items SET rarity = 'adventure' WHERE name = ?", (name,))
-
     # Редкие предметы для приключений
     adventure_items = [
         ("Потертый плащ", "armor", 2, 0, "adventure"),
@@ -157,16 +157,17 @@ def init_db():
         ("Магический жезл", "weapon", 10, 0, "adventure")
     ]
 
+    print("Добавление обычных предметов...")
     for item in items:
-        cur.execute("SELECT 1 FROM items WHERE name = ?", (item[0],))
-        if not cur.fetchone():
-            cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
-     # Добавляем предметы для приключений
+        cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
+        print(f"Добавлен: {item[0]} ({item[4]})")
+
+    print("Добавление приключенческих предметов...")
     for item in adventure_items:
-        cur.execute("SELECT 1 FROM items WHERE name = ?", (item[0],))
-        if not cur.fetchone():
-            cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
-            print(f"Добавлен предмет для приключений: {item[0]}")
+        cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
+        print(f"Добавлен: {item[0]} ({item[4]})")
+
+    print("=== ПРЕДМЕТЫ УСПЕШНО СОЗДАНЫ ===")
 
             
     # Битвы
