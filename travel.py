@@ -5,107 +5,152 @@ from bot_utils import check_level_up
 
 # Настройки приключений
 ADVENTURE_DURATION = 3600  # 1 час для нормальной игры
-ITEM_CHANCE = 0.15  # Шанс найти предмет в событии
+ITEM_CHANCE = 0.15 # Шанс найти предмет в событии
 
 # Редкие предметы только для приключений (не из магазина)
 ADVENTURE_ITEMS = [
-    {"id": 8, "name": "Потертый плащ", "type": "armor", "value": 2, "chance": 0.3},
-    {"id": 9, "name": "Зачарованный амулет", "type": "armor", "value": 5, "chance": 0.2},
-    {"id": 10, "name": "Острые когти", "type": "weapon", "value": 3, "chance": 0.25},
-    {"id": 11, "name": "Древний свиток", "type": "weapon", "value": 7, "chance": 0.15},
-    {"id": 12, "name": "Блестящее кольцо", "type": "armor", "value": 3, "chance": 0.3},
-    {"id": 13, "name": "Магический жезл", "type": "weapon", "value": 10, "chance": 0.1}
+    {"name": "Потертый плащ", "type": "armor", "value": 2, "chance": 0.3},
+    {"name": "Зачарованный амулет", "type": "armor", "value": 5, "chance": 0.2},
+    {"name": "Острые когти", "type": "weapon", "value": 3, "chance": 0.25},
+    {"name": "Древний свиток", "type": "weapon", "value": 7, "chance": 0.15},
+    {"name": "Блестящее кольцо", "type": "armor", "value": 3, "chance": 0.3},
+    {"name": "Магический жезл", "type": "weapon", "value": 10, "chance": 0.1}
 ]
 
 def check_adventure_items_in_database():
     """Проверяем какие adventure items есть в базе"""
     conn = db.get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT id, name, type, value FROM items WHERE id BETWEEN 8 AND 13")
+    # Ищем по редкости вместо фиксированных ID
+    cur.execute("SELECT id, name, type, value FROM items WHERE rarity = 'adventure'")
     items = cur.fetchall()
     conn.close()
     
     print("=== ПРЕДМЕТЫ ДЛЯ ПРИКЛЮЧЕНИЙ В БАЗЕ ===")
     for item in items:
         print(f"ID: {item['id']}, Name: {item['name']}, Type: {item['type']}, Value: {item['value']}")
-    print("======================================")
+        print("======================================")
     
-    # Создаем список только тех предметов, которые реально есть в базе
+    # Создаем список adventure предметов из базы
     available_items = []
-    for adv_item in ADVENTURE_ITEMS:
-        item_exists = any(db_item["id"] == adv_item["id"] for db_item in items)
-        if item_exists:
-            available_items.append(adv_item)
-            print(f"✅ Предмет доступен: {adv_item['name']} (ID: {adv_item['id']})")
+    for db_item in items:
+        # Находим соответствующий предмет в ADVENTURE_ITEMS по имени
+        adv_item = next((item for item in ADVENTURE_ITEMS if item["name"] == db_item["name"]), None)
+        if adv_item:
+            available_items.append({
+                "id": db_item["id"],  # Берем реальный ID из базы
+                "name": db_item["name"],
+                "type": db_item["type"],
+                "value": db_item["value"],
+                "chance": adv_item["chance"]
+            })
+            print(f"✅ Предмет доступен: {db_item['name']} (ID: {db_item['id']})")
         else:
-            print(f"❌ Предмет отсутствует в базе: {adv_item['name']} (ID: {adv_item['id']})")
+            print(f"⚠️ Предмет в базе но не в списке: {db_item['name']}")
     
     return available_items
-
 # Используем только доступные предметы
 AVAILABLE_ADVENTURE_ITEMS = check_adventure_items_in_database()
 
 ADVENTURE_EVENTS = [
     {
         "text": "встретил говорящего ежа, который научил его философии. +{xp} мудрости",
-        "xp": [10, 30],
+        "xp": [500, 750],
         "gold": [0, 0],
         "type": "philosophy"
     },
     {
         "text": "нашел сундук, но он оказался мимиком. Отбился и нашёл {gold} золота в его карманах",
-        "xp": [5, 15],
-        "gold": [20, 50],
+        "xp": [50, 150],
+        "gold": [80, 150],
         "type": "combat"
     },
     {
         "text": "пытался поймать фею, но та обокрала его и оставила {gold} золота 'из жалости'",
-        "xp": [5, 10],
+        "xp": [50, 100],
         "gold": [-15, -5],
         "type": "funny"
     },
     {
         "text": "проиграл в кости с гоблином {gold} золота, но выиграл {xp} опыта жизни",
-        "xp": [15, 25],
+        "xp": [250, 450],
         "gold": [-30, -10],
         "type": "gambling"
     },
     {
         "text": "научился готовить у местных орков. Съел что-то не то, но получил +{xp} к выносливости",
-        "xp": [10, 20],
+        "xp": [310, 520],
         "gold": [0, 0],
         "type": "training"
     },
     {
         "text": "подрался с собственным отражением в озере. Победил! +{xp} к самооценке",
-        "xp": [5, 15],
+        "xp": [350, 615],
         "gold": [0, 0],
         "type": "narcissism"
     },
     {
         "text": "нашел карту сокровищ, но это была реклама местной таверны. Потратил {gold} золота на эль",
-        "xp": [5, 10],
+        "xp": [50, 100],
         "gold": [-25, -15],
         "type": "tavern"
     },
     {
         "text": "помог старушке перейти дорогу. Та оказалась богиней и дала {xp} опыта",
-        "xp": [20, 40],
+        "xp": [800, 1400],
         "gold": [0, 0],
         "type": "divine"
     },
     {
         "text": "участвовал в конкурсе красоты среди фембоев. Занял {place} место!",
-        "xp": [10, 30],
+        "xp": [100, 300],
         "gold": [10, 40],
         "type": "contest"
     },
     {
         "text": "пытался приручить дракона, но тот съел его обед. Зато получил +{xp} к храбрости",
-        "xp": [15, 25],
+        "xp": [615, 925],
         "gold": [0, 0],
         "type": "dragon"
+    },
+    {
+        "text": "cгонял на съезд НСРПК...Потратил {gold} золота на дорогу и хавчик",
+        "xp": [100, 325],
+        "gold": [-35, -15],
+        "type": "сontest"
+    },
+    {
+        "text": "посетил созвон Аркона и залутал копеечку. +{gold} золота в кармашек",
+        "xp": [615, 925],
+        "gold": [50, 125],
+        "type": "contest"
+    },
+    {
+        "text": "пока гулял пришла стипуха. +{gold} золота в кармашек",
+        "xp": [615, 925],
+        "gold": [60, 150],
+        "type": "funny"
+    },
+    {
+        "text": "попал на патрики и дошёл с 1 золотой до {gold} золота",
+        "xp": [615, 925],
+        "gold": [50, 225],
+        "type": "contest"
+    },
+    {
+        "text": "попросил у Вождя денежек на поесть. Он скинул {gold} золота в кармашек",
+        "xp": [615, 925],
+        "gold": [150, 250],
+        "type": "contest"
+    },
+    {
+        "text": "поспорил с главбезом Аркона. Пришлось извиниться и заплатить штраф. -{gold} золота",
+        "xp": [615, 925],
+        "gold": [-100, -1],
+        "type": "funny"
     }
+    
+
 ]
 
 def start_adventure(conn, femboy, message):
