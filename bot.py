@@ -7,14 +7,14 @@ import db as db
 from game import battle, buy_item
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import time 
-from travel import start_adventure, adventure_checker
+from travel import start_adventure, adventure_checker, ADVENTURE_DURATION
 from bot_utils import get_inventory, get_user, calculate_max_hp, calculate_xp_to_next_level, check_level_up, is_user_admin_by_id, is_user_admin_by_message
 from datetime import datetime, timedelta
 
 # === Настройка ===
 #load_dotenv()
 TOKEN = "8231497187:AAFpmehDkGb8sr_nQZ3qbfUfnQ3EI3LXF78"
-#TOKEN = "7849791400:AAHi9JlJFwF_bVlMmWUwaXEhdP7chlHQSCw"
+# TOKEN = "7849791400:AAHi9JlJFwF_bVlMmWUwaXEhdP7chlHQSCw"
 bot = telebot.TeleBot(TOKEN)
 bot.start_time = time.time()  
 conn = db.init_db()
@@ -235,21 +235,73 @@ def cmd_shop(message):
         if not femboy:
             bot.send_message(message.chat.id, "У тебя ещё нет фембоя!")
             return
+        
         cur = conn.cursor()
-        cur.execute("SELECT * FROM items")
+        cur.execute("""
+            SELECT * FROM items 
+            WHERE rarity != 'adventure' 
+            ORDER BY 
+                CASE rarity
+                    WHEN 'trash' THEN 1
+                    WHEN 'toy' THEN 2
+                    WHEN 'wooden' THEN 3
+                    WHEN 'common' THEN 4
+                    WHEN 'rare' THEN 5
+                    WHEN 'mythical' THEN 6
+                    WHEN 'divine' THEN 7
+                    ELSE 8
+                END,
+                value ASC
+        """)
         items = cur.fetchall()
+        
         if not items:
             bot.send_message(message.chat.id, "Магазин пуст!")
             return
 
-        msg = "🏬 Магазин:\n"
-        for i in items:
-            msg += f"{i['id']}. {i['name']} ({i['type']}) — {i['value']} | 💰 {i['price']} gold\n"
-        msg += f"\nЧтобы купить: /buy <id>\nТвой баланс: {femboy['gold']}"
-        bot.send_message(message.chat.id, msg)
+        weapons = [item for item in items if item['type'] == 'weapon']
+        armors = [item for item in items if item['type'] == 'armor']
+        
+        msg = "🏬 МАГАЗИН ПРЕДМЕТОВ\n\n"
+        
+        # Оружие
+        if weapons:
+            msg += "⚔️ ОРУЖИЕ\n"
+            for item in weapons:
+                color = get_rarity_color(item['rarity'])
+                msg += f"{color} {item['id']}. {item['name']} +{item['value']}⚔️ | 💰 {item['price']}\n"
+            msg += "\n"
+        
+        # Броня
+        if armors:
+            msg += "🛡️ БРОНЯ\n"
+            for item in armors:
+                color = get_rarity_color(item['rarity'])
+                msg += f"{color} {item['id']}. {item['name']} +{item['value']}🛡️ | 💰 {item['price']}\n"
+        
+        # Простая легенда
+        msg += "\nЦвета редкостей:\n"
+        msg += "⚪ Хлам | 🟢 Игрушка | 🟡 Деревяшка\n"
+        msg += "🔵 Обычное | 🟣 Редкое | 🟠 Мифическое\n"
+        
+        msg += f"\nБаланс: {femboy['gold']} золота"
+        msg += f"\nКупить: /buy <id>"
+        
+        bot.send_message(message.chat.id, msg)  # Без parse_mode="HTML"
     except Exception as e:
         bot.send_message(message.chat.id, f"Ошибка: {e}")
 
+def get_rarity_color(rarity):
+    colors = {
+        'trash': '⚪',
+        'toy': '🟢', 
+        'wooden': '🟡',
+        'common': '🔵',
+        'rare': '🟣',
+        'mythical': '🟠',
+        'divine': '🔴'
+    }
+    return colors.get(rarity, '⚪')
 # === /buy ===
 @bot.message_handler(commands=['buy'])
 def cmd_buy(message):
@@ -270,6 +322,19 @@ def cmd_buy(message):
 
     try:
         item_id = int(args[1])
+        # Проверяем что предмет не adventure редкости
+        cur = conn.cursor()
+        cur.execute("SELECT rarity FROM items WHERE id=?", (item_id,))
+        item = cur.fetchone()
+        
+        if not item:
+            bot.send_message(message.chat.id, "Такого предмета нет!")
+            return
+            
+        if item['rarity'] == 'adventure':
+            bot.send_message(message.chat.id, "Этот предмет нельзя купить в магазине!")
+            return
+            
     except ValueError:
         bot.send_message(message.chat.id, "ID должно быть числом!")
         return
@@ -574,13 +639,26 @@ def cmd_travel(message):
     db.update_adventure_time(conn, user['id'])
     
     end_time = start_adventure(conn, femboy, message)
-
-    moscow_offset = timedelta(hours=3)
-    moscow_end_time = end_time + moscow_offset
+    
+    # Вместо времени возврата показываем продолжительность
+    duration = ADVENTURE_DURATION
+    if duration < 60:
+        time_text = f"{duration} секунд"
+    elif duration < 3600:
+        minutes = duration // 60
+        time_text = f"{minutes} минут"
+    else:
+        hours = duration // 3600
+        minutes = (duration % 3600) // 60
+        if minutes > 0:
+            time_text = f"{hours}ч {minutes}м"
+        else:
+            time_text = f"{hours}ч"
+    
     bot.send_message(
         message.chat.id, 
         f"🗺 {femboy['name']} отправился в загадочное приключение!\n"
-        f"⏰ Вернется примерно в {moscow_end_time.strftime('%H:%M:%S')}\n"
+        f"⏰ Вернется через: {time_text}\n"
         f"✨ Возможности: опыт, золото и даже редкие предметы!"
     )
 

@@ -103,40 +103,70 @@ def init_db():
         type TEXT NOT NULL,
         value INTEGER NOT NULL,
         price INTEGER NOT NULL
+
     );
     """)
+    try:
+        cur.execute("ALTER TABLE items ADD COLUMN rarity TEXT DEFAULT 'common'")
+        print("Добавлена колонка rarity в items")
+    except sqlite3.OperationalError:
+        print("Колонка rarity уже существует")
+        pass
+
+    def calculate_price(rarity, value, item_type, is_special=False):
+        """Рассчитывает цену предмета"""
+        base_prices = {'trash': 80, 'toy': 120, 'wooden': 200, 'common': 300, 'rare': 500, 'mythical': 1000, 'divine': 2000}
+        type_multipliers = {'weapon': 1.2, 'armor': 1.0, 'special': 1.5}
+        stats_multiplier = 1 + (value * 0.15)
+        special_multiplier = 1.4 if is_special else 1.0
+        price = base_prices[rarity] * stats_multiplier * type_multipliers[item_type] * special_multiplier
+        return max(80, int(price))
+
     # Начальные предметы
     items = [
-        ("Бычий Член", "weapon", 3, 100),
-        ("Митенки", "armor", 3, 80),
-        ("Волшебный Жезл", "weapon", 9, 280),
-        ("Костюм горничной", "armor", 9, 200),
-        ("Меч Астольфо", "weapon", 50, 1000),
-        ("Кошачьи ушки", "armor", 25, 450),
-        ("Благородная Слизь", "armor", 100, 1500 )
+        ("Говорящая рыба", "weapon", 1, calculate_price('trash', 1, 'weapon'), "trash"),
+        ("Тапочки безумия", "armor", 2, calculate_price('trash', 2, 'armor'), "trash"),
+        ("Ватная палочка", "weapon", 2, calculate_price('trash', 2, 'weapon'), "trash"),
+        ("Бычий Член", "weapon", 3, calculate_price('trash', 3, 'weapon'), "trash"),
+        ("Митенки", "armor", 3, calculate_price('trash', 3, 'armor'), "trash"),
+        ("Волшебный Жезл", "weapon", 9, calculate_price('toy', 9, 'weapon'), "toy"),
+        ("Костюм горничной", "armor", 9, calculate_price('toy', 9, 'armor'), "toy"),
+        ("Интегральная пушка", "weapon", 12, calculate_price('toy', 12, 'weapon'), "toy"),
+        ("Чокер с поводком", "armor", 15, calculate_price('toy', 15, 'armor'), "toy"),
+        ("Пособие по python", "weapon", 17, calculate_price('toy', 17, 'weapon'), "toy"),
+        ("Кошачьи ушки", "armor", 20, calculate_price('wooden', 20, 'armor'), "wooden"),
+        ("Халяль Редбулл", "weapon", 25 , calculate_price('wooden', 25, 'weapon'), "wooden"),
+        ("Дырявый Тазик", "armor", 27, calculate_price('wooden', 27, 'armor'), "wooden"),
+        ("Накидка из Фольги", "armor", 32, calculate_price('wooden', 32, 'armor'), "wooden"),
+        ("Нунчaки из Багетов", "weapon", 35, calculate_price('wooden', 35, 'weapon'), "wooden"),
+        ("Меч Астольфо", "weapon", 50, calculate_price('common', 50, 'weapon'), "common"),
+        ("Благородная Слизь", "armor", 100, calculate_price('rare', 100, 'armor'), "rare")
     ]
+
+    adventure_names = ['Потертый плащ', 'Зачарованный амулет', 'Острые когти', 'Древний свиток', 'Блестящее кольцо', 'Магический жезл']
+    for name in adventure_names:
+        cur.execute("UPDATE items SET rarity = 'adventure' WHERE name = ?", (name,))
 
     # Редкие предметы для приключений
     adventure_items = [
-        (8, "Потертый плащ", "armor", 2, 60),
-        (9, "Зачарованный амулет", "armor", 5, 150),
-        (10, "Острые когти", "weapon", 3, 90),
-        (11, "Древний свиток", "weapon", 7, 210),
-        (12, "Блестящее кольцо", "armor", 3, 90),
-        (13, "Магический жезл", "weapon", 10, 300)
+        ("Потертый плащ", "armor", 2, 0, "adventure"),
+        ("Зачарованный амулет", "armor", 5, 0, "adventure"),
+        ("Острые когти", "weapon", 3, 0, "adventure"),
+        ("Древний свиток", "weapon", 7, 0, "adventure"),
+        ("Блестящее кольцо", "armor", 3, 0, "adventure"),
+        ("Магический жезл", "weapon", 10, 0, "adventure")
     ]
 
     for item in items:
         cur.execute("SELECT 1 FROM items WHERE name = ?", (item[0],))
         if not cur.fetchone():
-            cur.execute("INSERT INTO items (name, type, value, price) VALUES (?, ?, ?, ?)", item)
+            cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
      # Добавляем предметы для приключений
-    for item_id, name, item_type, value, price in adventure_items:
-        cur.execute("SELECT 1 FROM items WHERE id = ?", (item_id,))
+    for item in adventure_items:
+        cur.execute("SELECT 1 FROM items WHERE name = ?", (item[0],))
         if not cur.fetchone():
-            cur.execute("INSERT INTO items (id, name, type, value, price) VALUES (?, ?, ?, ?, ?)", 
-                       (item_id, name, item_type, value, price))
-            print(f"Добавлен предмет для приключений: {name} (ID: {item_id})")
+            cur.execute("INSERT INTO items (name, type, value, price, rarity) VALUES (?, ?, ?, ?, ?)", item)
+            print(f"Добавлен предмет для приключений: {item[0]}")
 
             
     # Битвы
