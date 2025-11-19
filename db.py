@@ -122,9 +122,9 @@ def init_db():
         price = base_prices[rarity] * stats_multiplier * type_multipliers[item_type] * special_multiplier
         return max(80, int(price))
 
-    
+
     print("=== ОБНОВЛЕНИЕ РЕДКОСТЕЙ ПРЕДМЕТОВ ===")
-    
+
     # Обновляем редкости по имени
     rarity_updates = [
         ('trash', ['Говорящая рыба', 'Тапочки безумия', 'Ватная палочка', 'Бычий Член', 'Митенки']),
@@ -134,12 +134,12 @@ def init_db():
         ('rare', ['Благородная Слизь']),
         ('adventure', ['Потертый плащ', 'Зачарованный амулет', 'Острые когти', 'Древний свиток', 'Блестящее кольцо', 'Магический жезл'])
     ]
-    
+
     for rarity, names in rarity_updates:
         for name in names:
             cur.execute("UPDATE items SET rarity = ? WHERE name = ?", (rarity, name))
             print(f"Обновлена редкость: {name} -> {rarity}")
-    
+
     # Список ВСЕХ предметов которые должны быть в игре
     all_items = [
         ("Говорящая рыба", "weapon", 1, calculate_price('trash', 1, 'weapon'), "trash"),
@@ -167,7 +167,7 @@ def init_db():
         ("Блестящее кольцо", "armor", 3, 0, "adventure"),
         ("Магический жезл", "weapon", 10, 0, "adventure")
     ]
-    
+
     print("Добавление недостающих предметов...")
     for item in all_items:
         cur.execute("SELECT id FROM items WHERE name = ?", (item[0],))
@@ -176,7 +176,7 @@ def init_db():
             print(f"Добавлен новый предмет: {item[0]} ({item[4]})")
         else:
             print(f"Предмет уже существует: {item[0]}")
-    
+
     print("=== ОБНОВЛЕНИЕ ПРЕДМЕТОВ ЗАВЕРШЕНО ===")
             
     # Битвы
@@ -252,16 +252,21 @@ def get_femboy_dict(conn, user_id: int) -> Optional[dict]:
     f = get_femboy_by_user(conn, user_id)
     if not f:
         return None
+    
     d = dict(f)
-    # на всякий случай ставим дефолты, если чего нет
+    # Динамически рассчитываем бонусы
+    from bot_utils import calculate_equipment_bonuses
+    bonuses = calculate_equipment_bonuses(conn, d["id"])
+    
     d.setdefault("lvl", 1)
     d.setdefault("xp", 0)
     d.setdefault("hp", 50)
     d.setdefault("atk", 10)
     d.setdefault("def", 5)
     d.setdefault("gold", 30)
-    d.setdefault("weapon_atk", 0)
-    d.setdefault("armor_def", 0)
+    d["weapon_atk"] = bonuses['weapon']
+    d["armor_def"] = bonuses['armor'] 
+    
     return d
 
 def get_femboy_by_id(conn, femboy_id: int):

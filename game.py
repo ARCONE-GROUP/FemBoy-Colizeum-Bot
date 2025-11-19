@@ -3,28 +3,25 @@ import random
 
 def buy_item(conn, femboy_id: int, item_id: int) -> str:
     cur = conn.cursor()
-    # Получаем фембоя и предмет
     cur.execute("SELECT * FROM femboys WHERE id=?", (femboy_id,))
     femboy = cur.fetchone()
     cur.execute("SELECT * FROM items WHERE id=?", (item_id,))
     item = cur.fetchone()
+    
     if not item:
         return "Такого предмета нет!"
 
     if femboy["gold"] < item["price"]:
         return "Недостаточно золота!"
 
-    # Списываем золото и даем бонус
+    # ТОЛЬКО списываем золото и добавляем в инвентарь
     new_gold = femboy["gold"] - item["price"]
-    if item["type"] == "weapon":
-        cur.execute("UPDATE femboys SET gold=?, weapon_atk=? WHERE id=?", (new_gold, femboy["weapon_atk"] + item["value"], femboy_id))
-    else:
-        cur.execute("UPDATE femboys SET gold=?, armor_def=? WHERE id=?", (new_gold, femboy["armor_def"] + item["value"], femboy_id))
-
+    cur.execute("UPDATE femboys SET gold=? WHERE id=?", (new_gold, femboy_id))
     cur.execute("INSERT INTO femboy_items (femboy_id, item_id) VALUES (?, ?)", (femboy_id, item_id))
 
     conn.commit()
     return f"{item['name']} куплен!"
+
 
 
 def battle(femboy_a: dict, femboy_b: dict) -> dict:
